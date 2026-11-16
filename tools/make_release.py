@@ -56,11 +56,40 @@ def build() -> None:
     RELEASE.mkdir(exist_ok=True)
     if EXE.exists():
         EXE.unlink()
-    code = run([sys.executable, "-m", "PyInstaller", "build.spec",
-                "--noconfirm", "--distpath", str(RELEASE),
-                "--workpath", str(ROOT / "build")], cwd=str(ROOT))
-    if code != 0 or not EXE.exists():
+    cmd = [sys.executable, "-m", "PyInstaller", "build.spec",
+           "--noconfirm", "--distpath", str(RELEASE),
+           "--workpath", str(ROOT / "build")]
+    print(f"$ {' '.join(cmd)}", flush=True)
+    # 把构建日志落到文件：CI 上出错时，最后 40 行就是根因，不用再猜
+    log_path = ROOT / "release" / "build.log"
+    with open(log_path, "w", encoding="utf-8", errors="ignore") as lf:
+        proc = subprocess.run(cmd, cwd=str(ROOT), stdout=subprocess.PIPE,
+                              stderr=subprocess.STDOUT, text=True,
+                              encoding="utf-8", errors="ignore")
+        lf.write(proc.stdout or "")
+    tail = (proc.stdout or "").strip().splitlines()[-40:]
+    print("\n".join(tail), flush=True)
+    if proc.returncode != 0 or not EXE.exists():
+        print(f"\n=== 打包失败（完整日志 release/build.log）===")
         raise SystemExit("打包失败")
+
+
+def env_report() -> None:
+    """把关键依赖版本打出来——CI 与本地不一致时，这一行就能定位。"""
+    import platform
+    try:
+        import importlib.metadata as md
+        pkgs = ["rapidocr-onnxruntime", "onnxruntime", "pyinstaller", "numpy",
+                "pillow", "opencv-python"]
+        vers = []
+        for p in pkgs:
+            try:
+                vers.append(f"{p}={md.version(p)}")
+            except Exception:
+                vers.append(f"{p}=?")
+        print("环境：" + platform.python_version() + " | " + " ".join(vers))
+    except Exception:
+        pass
 
 
 def selftest() -> bool:
@@ -202,6 +231,7 @@ def main() -> int:
 
     ver = version()
     print(f"=== GameLens v{ver} 发行版打包 ===")
+    env_report()
 
     if not a.skip_build:
         build()
