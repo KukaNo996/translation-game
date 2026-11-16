@@ -1,6 +1,7 @@
 """GameLens 启动入口。
 
     GameLens.exe                 打开界面
+    GameLens.exe --version       只打印版本号后退出（不建窗口，CI 冒烟用）
     GameLens.exe --selftest      只做环境自检（结果写到 GameLensData/selftest.txt）
 """
 from __future__ import annotations
@@ -27,6 +28,10 @@ def _log_crash(exc_type, exc, tb) -> None:
 
 def main() -> int:
     sys.excepthook = _log_crash
+    if "--version" in sys.argv or "-v" in sys.argv:
+        from gamelens import __version__
+        print(f"GameLens {__version__}")
+        return 0
     if "--selftest" in sys.argv:
         from gamelens.selftest import run_selftest
         try:

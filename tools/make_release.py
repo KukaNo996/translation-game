@@ -102,8 +102,34 @@ def env_report() -> None:
         pass
 
 
+def _run_exe(args, timeout: int, log_name: str):
+    """跑 exe 并把输出写文件（不能用 PIPE）。
+
+    PyInstaller onefile 的 exe 会 fork 一个子进程来跑真正的程序，
+    子进程会继承 stdout 管道；用 capture_output 时 subprocess 等到超时也等不到
+    EOF，实测在 GitHub runner 上直接卡满 10 分钟（甚至到 job 上限）。
+    改成重定向到文件，超时就杀，稳。
+    """
+    log_path = RELEASE / log_name
+    with open(log_path, "wb") as fh:
+        return subprocess.run([str(EXE), *args], cwd=str(RELEASE),
+                              stdout=fh, stderr=subprocess.STDOUT, timeout=timeout)
+
+
+def smoke() -> bool:
+    """CI 冒烟：只跑 --version（不建窗口，秒级返回），确认 exe 真的能启动。"""
+    try:
+        out = _run_exe(["--version"], 90, "smoke.txt")
+        text = (RELEASE / "smoke.txt").read_text("utf-8", "ignore").strip()
+        print(f"exe 冒烟：{text or '(无输出)'}（退出码 {out.returncode}）")
+        return out.returncode == 0 and text.startswith("GameLens")
+    except Exception as exc:
+        print(f"exe 冒烟失败：{exc}")
+        return False
+
+
 def selftest() -> bool:
-    """跑 exe 自带自检。
+    """跑 exe 完整自检（会创建窗口，仅本地/有桌面会话时用）。
 
     本机 release/GameLensData 里可能有开发者自己配的在线翻译服务（甚至是失效的），
     自检会照着那份配置去连、白等超时。发行版要验的是"全新用户第一次启动"，
@@ -119,13 +145,15 @@ def selftest() -> bool:
             shutil.rmtree(backup, ignore_errors=True)
             shutil.move(str(cfg_dir), str(backup))
             moved = True
-        out = subprocess.run([str(EXE), "--selftest"], cwd=str(RELEASE),
-                             capture_output=True, timeout=600)
-        text = (out.stdout or b"").decode("utf-8", "ignore")
+        out = _run_exe(["--selftest"], 180, "selftest_run.txt")
+        text = (RELEASE / "selftest_run.txt").read_text("utf-8", "ignore")
         ok = out.returncode == 0
         tail = [ln for ln in text.splitlines() if ln.strip()][-6:]
         print("\n".join(tail) if tail else "(自检无输出)")
         return ok
+    except subprocess.TimeoutExpired:
+        print("自检超时（无桌面会话时 Tk 可能卡住），跳过")
+        return False
     except Exception as exc:
         print(f"自检未通过（继续打包）：{exc}")
         return False
@@ -253,8 +281,14 @@ def main() -> int:
     if size_mb < 30:
         raise SystemExit("exe 体积异常（<30MB），可能缺少 OCR 模型依赖，已中止")
 
-    ok = selftest()
-    print(f"自检：{'通过' if ok else '未通过（不影响出包）'}")
+    # CI 上没有交互桌面，完整自检（要建 Tk 窗口）容易挂住，改用 --version 冒烟；
+    # 本地照旧跑完整自检，能验证 OCR/翻译/注入全链路。
+    if os.environ.get("CI"):
+        ok = smoke()
+        print(f"冒烟：{'通过' if ok else '未通过（不影响出包）'}")
+    else:
+        ok = selftest()
+        print(f"自检：{'通过' if ok else '未通过（不影响出包）'}")
 
     zp = make_zip(ver)
     sums = write_sums([EXE, zp])
