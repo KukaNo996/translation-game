@@ -40,3 +40,4 @@ perler_*/
 output/
 release/_local_cfg_backup/
 release/SHA256SUMS.txt
+release/build.log
