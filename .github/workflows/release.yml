@@ -55,6 +55,7 @@ jobs:
         run: python tools/make_release.py
 
       - name: 上传构建产物（即使没有打标签也能下载）
+        if: always()
         uses: actions/upload-artifact@v4
         with:
           name: GameLens-win64
@@ -62,7 +63,9 @@ jobs:
             release/GameLens.exe
             release/*.zip
             release/SHA256SUMS.txt
+            release/build.log
           retention-days: 14
+          if-no-files-found: warn
 
       - name: 发布 Release
         if: startsWith(github.ref, 'refs/tags/v')
