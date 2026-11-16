@@ -5,16 +5,15 @@ __pycache__/
 .venv/
 venv/
 
-# ---- 打包产物（exe 走 Releases：单文件 110MB+，超过 GitHub/Gitee 的 100MB 单文件上限）
+# ---- 构建产物：exe/zip 走 Releases 分发，不进 git
+# （单文件 ~95MB，会把每次 clone 拖成 100MB+；release/ 下全是构建输出）
 build/
 build_rel/
 dist/
-release/*.exe
-release/*.zip
+release/
 
 # ---- 运行时数据（配置 / 翻译缓存 / 自检与基准报告，因人而异）
 GameLensData/
-release/GameLensData/
 
 # ---- 测试证据图（体积大；真实游戏截图还涉及第三方游戏版权）
 tests/assets/**/*.png
@@ -38,6 +37,3 @@ desktop.ini
 perler_*/
 .wip/
 output/
-release/_local_cfg_backup/
-release/SHA256SUMS.txt
-release/build.log
