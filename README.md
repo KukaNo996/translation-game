@@ -213,11 +213,17 @@ python tools/make_release.py --upload all        # GitHub + Gitee 都传（GITEE
 
 产物：
 
-| 文件 | 说明 |
-| --- | --- |
-| `release/GameLens.exe` | 单文件主程序（已内置中英/英文/日文 OCR 模型） |
-| `release/GameLens-v<版本>-win64.zip` | 主程序 + 说明书，便于分发 |
-| `release/SHA256SUMS.txt` | 校验和 |
+| 文件 | 大小 | 说明 |
+| --- | --- | --- |
+| `release/GameLens.exe` | 95 MB | 单文件主程序（已内置中英/英文/日文 OCR 模型） |
+| `release/GameLens-v<版本>-win64.zip` | 94.5 MB | 主程序 + 说明书，便于分发 |
+| `release/SHA256SUMS.txt` | — | 校验和 |
+
+体积是抠过的：`build.spec` 会剔除两个纯属被依赖链拖进来的二进制——
+OpenCV 的视频解码后端 `opencv_videoio_ffmpeg4130_64.dll`（压缩前 27MB）和
+Pillow 的 AVIF 插件 `_avif`（7.5MB），本项目只截图和 OCR，永远用不到它们。
+剔掉后 exe 从 110MB 降到 95MB，**正好落进 Gitee 100MB 的单个附件上限**，
+两个平台都能直接挂二进制包。
 
 脚本内置三道保险：exe 小于 30MB 直接中止（模型没打进去）、
 自检会在**干净的配置目录**里跑（不受开发者本机在线翻译服务配置影响）、
@@ -232,10 +238,14 @@ git push origin v1.0.0
 ```
 
 也可以在 Actions 页面手动触发（只构建 + 产出 artifact，不建 Release）。
-受限于单文件 100MB 上限，`GameLens.exe` 只作为 **Release 附件**分发，不进 git。
+`GameLens.exe` 作为 **Release 附件**分发（不进 git，避免仓库膨胀）。
 
 > 版本号唯一来源是 `src/gamelens/__init__.py` 的 `__version__`，
 > 改版本只改这一处，窗口标题、zip 名、Release 标签都跟着走。
+
+> 二进制约 95MB，虽然没超 GitHub/Gitee 的单文件上限，但仍**不进 git**
+> （会把每次 clone 拖成 100MB+），只作为 Release 附件分发。
+> `make_release.py --upload all` 会同时传两个平台；超过 100MB 时自动跳过 Gitee 并提示。
 
 ## 验证
 

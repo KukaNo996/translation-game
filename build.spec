@@ -94,6 +94,19 @@ a = Analysis(
     optimize=0,
 )
 
+# ---- 砍掉用不到的二进制（体积主要就省在这里）
+#  · opencv_videoio_ffmpeg*.dll：OpenCV 的视频解码后端，我们只做截图/OCR，永不调 VideoCapture
+#  · PIL\_avif：Pillow 的 AVIF 插件，本项目不读 AVIF
+# 这两个加起来压缩前 35MB、压缩后约 15MB —— 砍掉之后 exe 从 110MB 降到 95MB 左右，
+# 正好能进 Gitee 100MB 的附件上限，也顺带缩短启动解包时间。
+_DROP_BIN = ("opencv_videoio_ffmpeg", "_avif")
+_dropped = [b for b in a.binaries if any(k in b[0] for k in _DROP_BIN)]
+if _dropped:
+    a.binaries = [b for b in a.binaries if b not in _dropped]
+    print(f"[build] 已排除 {len(_dropped)} 个无用二进制：")
+    for b in _dropped:
+        print(f"         - {b[0]}")
+
 pyz = PYZ(a.pure)
 
 exe = EXE(
