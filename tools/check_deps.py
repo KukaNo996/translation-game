@@ -11,8 +11,11 @@
 """
 from __future__ import annotations
 
+import os
 import sys
 from pathlib import Path
+
+IN_CI = bool(os.environ.get("GITHUB_ACTIONS"))
 
 ROOT = Path(__file__).resolve().parents[1]
 MODELS = {
@@ -31,6 +34,10 @@ def ok(msg: str) -> None:
 
 def bad(msg: str) -> None:
     print(f"  [FAIL] {msg}")
+    # 在 CI 里同时写成 annotation：这样运行页面上直接能看到失败的哪一项，
+    # 不用登录下载日志（打包失败排查最耗时的就是这个环节）
+    if IN_CI:
+        print(f"::error title=依赖自检::{msg}")
     fail.append(msg)
 
 
@@ -88,6 +95,15 @@ def main() -> int:
             ok(f"模型 {name}（{p.stat().st_size / 1048576:.1f} MB）")
 
     print()
+    if IN_CI and os.environ.get("GITHUB_STEP_SUMMARY"):
+        try:
+            with open(os.environ["GITHUB_STEP_SUMMARY"], "a", encoding="utf-8") as fh:
+                fh.write("### 依赖自检\n\n")
+                fh.write("| 项 | 结果 |\n| --- | --- |\n")
+                for f in fail or ["全部通过"]:
+                    fh.write(f"| {f} | {'❌' if fail else '✅'} |\n")
+        except Exception:
+            pass
     if fail:
         print(f"依赖自检未通过（{len(fail)} 项）：")
         for f in fail:
