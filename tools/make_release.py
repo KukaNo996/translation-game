@@ -16,6 +16,16 @@
 """
 from __future__ import annotations
 
+import sys
+
+# Windows 的控制台（尤其 GitHub Actions 的 cp1252 环境）默认编码装不下中文，
+# 直接 print 就会抛 UnicodeEncodeError。这里统一改成 UTF-8，避免脚本因为"打印日志"而崩。
+try:
+    sys.stdout.reconfigure(encoding="utf-8", errors="replace")
+    sys.stderr.reconfigure(encoding="utf-8", errors="replace")
+except Exception:
+    pass
+
 import argparse
 import hashlib
 import json

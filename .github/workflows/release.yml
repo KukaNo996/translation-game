@@ -16,6 +16,10 @@ jobs:
   build:
     runs-on: windows-latest
     timeout-minutes: 40
+    env:
+      # runner 的控制台是 cp1252，不加这两行，脚本一 print 中文就 UnicodeEncodeError
+      PYTHONUTF8: "1"
+      PYTHONIOENCODING: "utf-8"
     steps:
       - uses: actions/checkout@v4
 

@@ -15,6 +15,14 @@ import os
 import sys
 from pathlib import Path
 
+# Windows 控制台（尤其 GitHub Actions 的 cp1252 环境）默认编码装不下中文，
+# 直接 print 就会抛 UnicodeEncodeError。统一改成 UTF-8，别让脚本因为"打印日志"而崩。
+try:
+    sys.stdout.reconfigure(encoding="utf-8", errors="replace")
+    sys.stderr.reconfigure(encoding="utf-8", errors="replace")
+except Exception:
+    pass
+
 IN_CI = bool(os.environ.get("GITHUB_ACTIONS"))
 
 ROOT = Path(__file__).resolve().parents[1]
