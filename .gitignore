@@ -1,0 +1,40 @@
+# ---- Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+venv/
+
+# ---- 打包产物（exe 走 Releases：单文件 110MB+，超过 GitHub/Gitee 的 100MB 单文件上限）
+build/
+build_rel/
+dist/
+release/*.exe
+release/*.zip
+
+# ---- 运行时数据（配置 / 翻译缓存 / 自检与基准报告，因人而异）
+GameLensData/
+release/GameLensData/
+
+# ---- 测试证据图（体积大；真实游戏截图还涉及第三方游戏版权）
+tests/assets/**/*.png
+tests/assets/**/*.txt
+
+# ---- 语料抽取产物（由游戏资源生成的文本，版权归原游戏）
+corpus/
+*_corpus*.txt
+
+# ---- 编辑器 / 系统
+.idea/
+.vscode/
+*.swp
+Thumbs.db
+desktop.ini
+
+# ---- 本项目的工作记录（个人笔记，不对外）
+.workbuddy/
+
+# ---- 其它工具的临时目录
+perler_*/
+.wip/
+output/
