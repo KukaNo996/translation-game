@@ -1,0 +1,62 @@
+name: release
+
+# 打一个 v* 标签就自动产出发行版：
+#   git tag v1.0.0 && git push origin v1.0.0
+# 也可以在 Actions 页面点 "Run workflow" 手动跑（只构建、不建 Release）。
+on:
+  push:
+    tags:
+      - "v*"
+  workflow_dispatch:
+
+permissions:
+  contents: write          # 创建 Release、上传附件
+
+jobs:
+  build:
+    runs-on: windows-latest
+    timeout-minutes: 40
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"      # onnxruntime / rapidocr 的轮子最稳的版本
+          cache: pip
+
+      - name: 安装依赖
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+
+      - name: 打包 exe
+        run: python tools/make_release.py
+
+      - name: 上传构建产物（即使没有打标签也能下载）
+        uses: actions/upload-artifact@v4
+        with:
+          name: GameLens-win64
+          path: |
+            release/GameLens.exe
+            release/*.zip
+            release/SHA256SUMS.txt
+          retention-days: 14
+
+      - name: 发布 Release
+        if: startsWith(github.ref, 'refs/tags/v')
+        uses: softprops/action-gh-release@v2
+        with:
+          name: GameLens ${{ github.ref_name }}
+          body: |
+            Windows 10/11 单文件版，双击即用，无需安装 Python。
+
+            - `GameLens.exe`：主程序（已内置中英/英文/日文 OCR 模型，离线可用）
+            - `GameLens-v*-win64.zip`：主程序 + 说明书
+            - `SHA256SUMS.txt`：校验和
+
+            > 注入模式会改写运行中游戏的内存，请先备份存档并先用演练模式确认。
+          files: |
+            release/GameLens.exe
+            release/*.zip
+            release/SHA256SUMS.txt
+          fail_on_unmatched_files: false

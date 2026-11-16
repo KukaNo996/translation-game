@@ -3,6 +3,8 @@
 [![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 [![Python](https://img.shields.io/badge/python-3.10%2B-3776ab.svg)](https://www.python.org/)
 [![Platform](https://img.shields.io/badge/platform-Windows%2010%2F11-0078d6.svg)](#)
+[![Release](https://img.shields.io/github/v/release/KukaNo996/translation-game.svg)](https://github.com/KukaNo996/translation-game/releases/latest)
+[![Build](https://img.shields.io/github/actions/workflow/status/KukaNo996/translation-game/release.yml.svg)](https://github.com/KukaNo996/translation-game/actions)
 
 把**英文 / 日文**游戏界面实时变成中文，**不修改游戏文件、不打断操作**：
 汉化层是独立的点击穿透窗口，你在原按钮位置点下去，游戏照样收到点击。
@@ -196,13 +198,44 @@ build.spec       PyInstaller 打包配置
 ## 从源码运行 / 重新打包
 
 ```bash
-pip install pillow requests pyinstaller
-pip install rapidocr-onnxruntime
-pip install winrt-runtime winrt-Windows.Media.Ocr winrt-Windows.Graphics.Imaging \
-            winrt-Windows.Storage.Streams winrt-Windows.Foundation winrt-Windows.Globalization
+pip install -r requirements.txt
 python src/main.py                       # 直接运行
-python -m PyInstaller build.spec --noconfirm --distpath release   # 生成 release/GameLens.exe
 ```
+
+### 打包与发版（自动化）
+
+```bash
+python tools/make_release.py                     # 一键出包：清理 → PyInstaller → 自检 → zip → SHA256
+python tools/make_release.py --skip-build        # 不重打包，只做自检/压缩/校验和
+python tools/make_release.py --upload github     # 出包并上传 GitHub Release（读 GITHUB_TOKEN）
+python tools/make_release.py --upload all        # GitHub + Gitee 都传（GITEE_TOKEN + GITEE_OWNER）
+```
+
+产物：
+
+| 文件 | 说明 |
+| --- | --- |
+| `release/GameLens.exe` | 单文件主程序（已内置中英/英文/日文 OCR 模型） |
+| `release/GameLens-v<版本>-win64.zip` | 主程序 + 说明书，便于分发 |
+| `release/SHA256SUMS.txt` | 校验和 |
+
+脚本内置三道保险：exe 小于 30MB 直接中止（模型没打进去）、
+自检会在**干净的配置目录**里跑（不受开发者本机在线翻译服务配置影响）、
+上传前逐个文件算 SHA256。
+
+**完全自动发版**：仓库已配置 `.github/workflows/release.yml`，
+打个标签就会自动在 GitHub 的 Windows runner 上构建并发 Release，不需要本地任何令牌：
+
+```bash
+git tag v1.0.0
+git push origin v1.0.0
+```
+
+也可以在 Actions 页面手动触发（只构建 + 产出 artifact，不建 Release）。
+受限于单文件 100MB 上限，`GameLens.exe` 只作为 **Release 附件**分发，不进 git。
+
+> 版本号唯一来源是 `src/gamelens/__init__.py` 的 `__version__`，
+> 改版本只改这一处，窗口标题、zip 名、Release 标签都跟着走。
 
 ## 验证
 

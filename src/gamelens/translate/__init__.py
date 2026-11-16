@@ -30,6 +30,8 @@ class TranslationService:
         self._dirty = 0
         self.stats = {"hit": 0, "miss": 0, "error": 0}
         self.last_error: str = ""
+        self._fail_until = 0.0      # 在线引擎熔断截止时间
+        self._fail_count = 0
         self._load_cache()
 
     # ------------------------------------------------------------ 缓存
@@ -128,22 +130,36 @@ class TranslationService:
 
         items = [texts[i] for i in todo]
         translated: List[str] = []
-        try:
-            engine = self.engine()
-            translated = engine.translate(items, src=self.source_lang())
-        except Exception as exc:
-            self.stats["error"] += 1
-            self.last_error = str(exc)
-            self.log(f"翻译失败（{type(exc).__name__}）：{exc}")
-            if engine_is_offline(self.cfg):
-                translated = [""] * len(items)
-            else:
-                # 网络/模型不可用时，先用离线引擎顶上，保证界面不空白
-                try:
-                    translated = self._fallback.translate(items)
-                    self.last_error += "（已临时使用离线引擎）"
-                except Exception:
+        src = self.source_lang()
+        offline = self._ja if src == "ja" else self._fallback
+
+        # 熔断：配的在线服务如果已经挂了，别每批都白等一整个 timeout。
+        # 实测失效的本地端点会让每批卡 30 秒，界面看起来就是"不翻译"。
+        cooling = time.time() < self._fail_until
+        if cooling:
+            translated = offline.translate(items, src=src)
+        else:
+            try:
+                engine = self.engine()
+                translated = engine.translate(items, src=src)
+                self._fail_count = 0
+                self._fail_until = 0.0
+            except Exception as exc:
+                self.stats["error"] += 1
+                self.last_error = str(exc)
+                self.log(f"翻译失败（{type(exc).__name__}）：{exc}")
+                if getattr(self.engine(), "offline", False):
                     translated = [""] * len(items)
+                else:
+                    # 网络/模型不可用时，先用离线引擎顶上，保证界面不空白
+                    self._fail_count += 1
+                    wait = min(300, 30 * (2 ** min(self._fail_count - 1, 3)))
+                    self._fail_until = time.time() + wait
+                    try:
+                        translated = offline.translate(items, src=src)
+                        self.last_error += f"（已临时使用离线引擎，{int(wait)} 秒内不再重试在线引擎）"
+                    except Exception:
+                        translated = [""] * len(items)
 
         if len(translated) != len(items):
             translated = (translated + [""] * len(items))[: len(items)]
