@@ -233,8 +233,8 @@ Pillow 的 AVIF 插件 `_avif`（7.5MB），本项目只截图和 OCR，永远�
 打个标签就会自动在 GitHub 的 Windows runner 上构建并发 Release，不需要本地任何令牌：
 
 ```bash
-git tag v1.0.1
-git push origin v1.0.1
+git tag v1.0.2
+git push origin v1.0.2
 ```
 
 也可以在 Actions 页面手动触发（只构建 + 产出 artifact，不建 Release）。
